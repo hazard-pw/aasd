@@ -9,6 +9,7 @@ import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
 import net.music.speaker.models.SurveyResult;
 
+
 public class Surveyor extends AbstractBehavior<Surveyor.Command> {
 
     public static final ServiceKey<Command> surveyorServiceKey =
@@ -41,7 +42,7 @@ public class Surveyor extends AbstractBehavior<Surveyor.Command> {
     }
 
     private Behavior<Command> onSurveyResult(ReceiveSurveyResult msg) {
-        System.out.println(msg.result.test);
+        getContext().getLog().info("Received survey result " + msg.result.test);
         return this;
     }
 
