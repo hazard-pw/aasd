@@ -11,15 +11,20 @@ public class Main extends AbstractBehavior<Void> {
 
     private final ActorRef<Responder.Command> responder;
     private final ActorRef<Surveyor.Command> surveyor;
-    private final ActorRef<Speaker.Command> speaker;
+//    private final ActorRef<Speaker.Command> speaker;
+    private final ActorRef<Moderator.Command> moderator;
+    private final ActorRef<Skipper.Command> skipper;
 
     public Main(ActorContext<Void> context) {
         super(context);
         responder = context.spawn(Responder.create(), "responder");
         responder.tell(new Responder.OpenSurvey());
         surveyor = context.spawn(Surveyor.create(), "surveyor");
-        speaker = context.spawn(Speaker.create(), "speaker");
-        speaker.tell(new Speaker.PlaySongRequest("spotify:playlist:4tu64dqBn5bzBZ3o1qiabJ?si=f441c545421e45d5"));
+//        speaker = context.spawn(Speaker.create(), "speaker");
+//        speaker.tell(new Speaker.PlaySongRequest("spotify:playlist:4tu64dqBn5bzBZ3o1qiabJ?si=f441c545421e45d5"));
+        moderator = context.spawn(Moderator.create(), "moderator");
+        moderator.tell(new Moderator.StartVoteRequest());
+        skipper = context.spawn(Skipper.create(), "skipper");
     }
 
     public static Behavior<Void> create() {

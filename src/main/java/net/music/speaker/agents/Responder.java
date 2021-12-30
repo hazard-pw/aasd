@@ -25,80 +25,80 @@ public class Responder {
     public static Behavior<Command> create() {
         return Behaviors.setup(WaitingForOpenSurveyBehaviour::new);
     }
-}
 
-class WaitingForOpenSurveyBehaviour extends AbstractBehavior<Responder.Command> {
-    public WaitingForOpenSurveyBehaviour(ActorContext<Responder.Command> context) {
-        super(context);
+    static class WaitingForOpenSurveyBehaviour extends AbstractBehavior<Responder.Command> {
+        public WaitingForOpenSurveyBehaviour(ActorContext<Responder.Command> context) {
+            super(context);
+        }
+
+        private Behavior<Responder.Command> onOpenSurvey(Responder.OpenSurvey msg) {
+            getContext().getLog().info("Survey Open!");
+
+            // ... tu jest UI, ktore po zamknieciu zrobi ...
+            // ui = new Window();
+            // ui.onFinished(() -> this.context.getSelf().tell(new UIFinished()));
+            // ui.start();
+            getContext().getSelf().tell(new Responder.UIFinished());
+
+            return new WaitingForUIFinishedBehaviour(getContext());
+        }
+
+        @Override
+        public Receive<Responder.Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(Responder.OpenSurvey.class, this::onOpenSurvey)
+                    .build();
+        }
     }
 
-    private Behavior<Responder.Command> onOpenSurvey(Responder.OpenSurvey msg) {
-        getContext().getLog().info("Survey Open!");
+    static class WaitingForUIFinishedBehaviour extends AbstractBehavior<Responder.Command> {
+        private final ActorRef<Receptionist.Listing> listingResponseAdapter;
 
-        // ... tu jest UI, ktore po zamknieciu zrobi ...
-        // ui = new Window();
-        // ui.onFinished(() -> this.context.getSelf().tell(new UIFinished()));
-        // ui.start();
-        getContext().getSelf().tell(new Responder.UIFinished());
+        public WaitingForUIFinishedBehaviour(ActorContext<Responder.Command> context) {
+            super(context);
+            this.listingResponseAdapter = context.messageAdapter(Receptionist.Listing.class, Responder.ListingResponse::new);
+        }
 
-        return new WaitingForUIFinishedBehaviour(getContext());
+        private Behavior<Responder.Command> onUIFinished(Responder.UIFinished msg) {
+            // ... wczytaj z UI ...
+            SurveyResult surveyResults = new SurveyResult();
+            surveyResults.test = "1234";
+
+            getContext()
+                    .getSystem()
+                    .receptionist()
+                    .tell(Receptionist.find(Surveyor.surveyorServiceKey, listingResponseAdapter));
+
+            return new WaitingForListingBehaviour(getContext(), surveyResults);
+        }
+
+        @Override
+        public Receive<Responder.Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(Responder.UIFinished.class, this::onUIFinished)
+                    .build();
+        }
     }
 
-    @Override
-    public Receive<Responder.Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(Responder.OpenSurvey.class, this::onOpenSurvey)
-                .build();
-    }
-}
+    static class WaitingForListingBehaviour extends AbstractBehavior<Responder.Command> {
+        private final SurveyResult surveyResults;
 
-class WaitingForUIFinishedBehaviour extends AbstractBehavior<Responder.Command> {
-    private final ActorRef<Receptionist.Listing> listingResponseAdapter;
+        public WaitingForListingBehaviour(ActorContext<Responder.Command> context, SurveyResult surveyResults) {
+            super(context);
+            this.surveyResults = surveyResults;
+        }
 
-    public WaitingForUIFinishedBehaviour(ActorContext<Responder.Command> context) {
-        super(context);
-        this.listingResponseAdapter = context.messageAdapter(Receptionist.Listing.class, Responder.ListingResponse::new);
-    }
+        private Behavior<Responder.Command> onListing(Responder.ListingResponse msg) {
+            msg.listing.getServiceInstances(Surveyor.surveyorServiceKey)
+                    .forEach(surveyorService -> surveyorService.tell(new Surveyor.ReceiveSurveyResult(surveyResults)));
+            return Behaviors.empty();
+        }
 
-    private Behavior<Responder.Command> onUIFinished(Responder.UIFinished msg) {
-        // ... wczytaj z UI ...
-        SurveyResult surveyResults = new SurveyResult();
-        surveyResults.test = "1234";
-
-        getContext()
-                .getSystem()
-                .receptionist()
-                .tell(Receptionist.find(Surveyor.surveyorServiceKey, listingResponseAdapter));
-
-        return new WaitingForListingBehaviour(getContext(), surveyResults);
-    }
-
-    @Override
-    public Receive<Responder.Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(Responder.UIFinished.class, this::onUIFinished)
-                .build();
-    }
-}
-
-class WaitingForListingBehaviour extends AbstractBehavior<Responder.Command> {
-    private final SurveyResult surveyResults;
-
-    public WaitingForListingBehaviour(ActorContext<Responder.Command> context, SurveyResult surveyResults) {
-        super(context);
-        this.surveyResults = surveyResults;
-    }
-
-    private Behavior<Responder.Command> onListing(Responder.ListingResponse msg) {
-        msg.listing.getServiceInstances(Surveyor.surveyorServiceKey)
-                .forEach(surveyorService -> surveyorService.tell(new Surveyor.ReceiveSurveyResult(surveyResults)));
-        return Behaviors.empty();
-    }
-
-    @Override
-    public Receive<Responder.Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(Responder.ListingResponse.class, this::onListing)
-                .build();
+        @Override
+        public Receive<Responder.Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(Responder.ListingResponse.class, this::onListing)
+                    .build();
+        }
     }
 }
