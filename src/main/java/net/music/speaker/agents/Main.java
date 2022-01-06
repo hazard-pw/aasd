@@ -6,34 +6,51 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
+import se.michaelthelin.spotify.SpotifyApi;
 
-public class Main extends AbstractBehavior<Void> {
+import java.net.URI;
 
-    private final ActorRef<Responder.Command> responder;
-    private final ActorRef<Surveyor.Command> surveyor;
-//    private final ActorRef<Speaker.Command> speaker;
-    private final ActorRef<Moderator.Command> moderator;
-    private final ActorRef<Skipper.Command> skipper;
+public class Main {
+    public interface Command {}
+    public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
+    public record JoinSession(String someSessionIDOrSomethingWeWillFigureItOutLater) implements Command {}
 
-    public Main(ActorContext<Void> context) {
-        super(context);
-        responder = context.spawn(Responder.create(), "responder");
-        responder.tell(new Responder.OpenSurvey());
-        surveyor = context.spawn(Surveyor.create(), "surveyor");
-//        speaker = context.spawn(Speaker.create(), "speaker");
-//        speaker.tell(new Speaker.PlaySongRequest("spotify:playlist:4tu64dqBn5bzBZ3o1qiabJ?si=f441c545421e45d5"));
-        moderator = context.spawn(Moderator.create(), "moderator");
-        moderator.tell(new Moderator.StartVoteRequest());
-        skipper = context.spawn(Skipper.create(), "skipper");
+    public static Behavior<Main.Command> create() {
+        return Behaviors.setup(AwaitStartBehavior::new);
     }
 
-    public static Behavior<Void> create() {
-        return Behaviors.setup(Main::new);
-    }
+    public static class AwaitStartBehavior extends AbstractBehavior<Main.Command> {
+        public AwaitStartBehavior(ActorContext<Command> context) {
+            super(context);
+        }
 
-    @Override
-    public Receive<Void> createReceive() {
-        return newReceiveBuilder().build();
-    }
+        @Override
+        public Receive<Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(StartNewSession.class, this::onStartNewSession)
+                    .onMessage(JoinSession.class, this::onJoinSession)
+                    .build();
+        }
 
+        private Behavior<Command> onStartNewSession(StartNewSession msg) {
+            ActorRef<Responder.Command> responder = getContext().spawn(Responder.create(), "responder");
+            ActorRef<Surveyor.Command> surveyor = getContext().spawn(Surveyor.create(msg.spotifyApi), "surveyor");
+            ActorRef<Speaker.Command> speaker = getContext().spawn(Speaker.create(msg.spotifyApi), "speaker");
+            ActorRef<Moderator.Command> moderator = getContext().spawn(Moderator.create(), "moderator");
+            ActorRef<Skipper.Command> skipper = getContext().spawn(Skipper.create(), "skipper");
+
+            responder.tell(new Responder.OpenSurvey());
+
+            return Behaviors.empty();
+        }
+
+        private Behavior<Command> onJoinSession(JoinSession msg) {
+            ActorRef<Responder.Command> responder = getContext().spawn(Responder.create(), "responder");
+            ActorRef<Skipper.Command> skipper = getContext().spawn(Skipper.create(), "skipper");
+
+            responder.tell(new Responder.OpenSurvey());
+
+            return Behaviors.empty();
+        }
+    }
 }

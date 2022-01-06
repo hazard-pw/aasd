@@ -8,19 +8,13 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.receptionist.Receptionist;
 import net.music.speaker.models.SurveyResult;
+import net.music.speaker.ui.SurveyUI;
 
 public class Responder {
     interface Command {}
-    public static final class OpenSurvey implements Command {}
-    public static final class UIFinished implements Command {}
-
-    static final class ListingResponse implements Command {
-        final Receptionist.Listing listing;
-
-        ListingResponse(Receptionist.Listing listing) {
-            this.listing = listing;
-        }
-    }
+    public record OpenSurvey() implements Command {}
+    public record UIFinished(SurveyResult results) implements Command {}
+    private record ListingResponse(Receptionist.Listing listing) implements Command {}
 
     public static Behavior<Command> create() {
         return Behaviors.setup(WaitingForOpenSurveyBehaviour::new);
@@ -34,11 +28,9 @@ public class Responder {
         private Behavior<Responder.Command> onOpenSurvey(Responder.OpenSurvey msg) {
             getContext().getLog().info("Survey Open!");
 
-            // ... tu jest UI, ktore po zamknieciu zrobi ...
-            // ui = new Window();
-            // ui.onFinished(() -> this.context.getSelf().tell(new UIFinished()));
-            // ui.start();
-            getContext().getSelf().tell(new Responder.UIFinished());
+            new SurveyUI((SurveyResult results) -> {
+                getContext().getSelf().tell(new Responder.UIFinished(results));
+            }).start();
 
             return new WaitingForUIFinishedBehaviour(getContext());
         }
@@ -60,16 +52,12 @@ public class Responder {
         }
 
         private Behavior<Responder.Command> onUIFinished(Responder.UIFinished msg) {
-            // ... wczytaj z UI ...
-            SurveyResult surveyResults = new SurveyResult();
-            surveyResults.test = "1234";
-
             getContext()
                     .getSystem()
                     .receptionist()
                     .tell(Receptionist.find(Surveyor.surveyorServiceKey, listingResponseAdapter));
 
-            return new WaitingForListingBehaviour(getContext(), surveyResults);
+            return new WaitingForListingBehaviour(getContext(), msg.results);
         }
 
         @Override
