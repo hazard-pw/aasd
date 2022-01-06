@@ -5,20 +5,22 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.models.SkipVoteResult;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class Moderator {
     public static final ServiceKey<Command> moderatorServiceKey =
             ServiceKey.create(Command.class, "moderator");
 
-    private static final Duration VOTING_DURATION = Duration.ofSeconds(15);
+    private static final Duration VOTING_DURATION = Duration.ofSeconds(10);
 
     interface Command {}
     public record StartVoteRequest(ActorRef<Skipper.Command> voter) implements Command {}
-    public record VoteRequest(ActorRef<Skipper.Command> voter) implements Command {}
+    public record VoteResponse(SkipVoteResult response, ActorRef<Skipper.Command> voter) implements Command {}
     private record VoteTimeout() implements Command {}
     private record SkipperListingResponse(Receptionist.Listing listing) implements Command {}
     private record SpeakerListingResponse(Receptionist.Listing listing) implements Command {}
@@ -41,10 +43,9 @@ public class Moderator {
         public AwaitRequestStartVoteBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers) {
             super(context);
             this.timers = timers;
-            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
         }
 
-        private Behavior<Command> onVoteRequest(StartVoteRequest msg) {
+        private Behavior<Command> onStartVoteRequest(StartVoteRequest msg) {
             getContext()
                     .getSystem()
                     .receptionist()
@@ -59,7 +60,7 @@ public class Moderator {
         @Override
         public Receive<Command> createReceive() {
             return newReceiveBuilder()
-                    .onMessage(StartVoteRequest.class, this::onVoteRequest)
+                    .onMessage(StartVoteRequest.class, this::onStartVoteRequest)
                     .build();
         }
     }
@@ -72,13 +73,15 @@ public class Moderator {
             super(context);
             this.timers = timers;
             this.startVoter = startVoter;
-            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
         }
 
         private Behavior<Command> onListing(SkipperListingResponse msg) {
-            msg.listing.getServiceInstances(Skipper.skipperServiceKey)
-                    .forEach(skipperService -> skipperService.tell(new Skipper.VotingStarted(getContext().getSelf(), VOTING_DURATION)));
-            return new AwaitVoteBehaviour(getContext(), timers, VOTING_DURATION, startVoter);
+            Set<ActorRef<Skipper.Command>> skippers = msg.listing.getServiceInstances(Skipper.skipperServiceKey);
+
+            Skipper.VotingStarted votingStarted = new Skipper.VotingStarted(getContext().getSelf(), VOTING_DURATION);
+            skippers.forEach(skipperService -> skipperService.tell(votingStarted));
+
+            return new AwaitVoteBehaviour(getContext(), timers, VOTING_DURATION, startVoter, skippers);
         }
 
         @Override
@@ -91,20 +94,26 @@ public class Moderator {
 
     private static class AwaitVoteBehaviour extends AbstractBehavior<Command> {
         private final TimerScheduler<Command> timers;
-        private final List<ActorRef<Skipper.Command>> votes = new ArrayList<>();
+        private final List<VoteResponse> votes = new ArrayList<>();
+        private final Set<ActorRef<Skipper.Command>> participants;
 
         private static final Object TIMER_KEY = new Object();
 
-        public AwaitVoteBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers, Duration votingDuration, ActorRef<Skipper.Command> startVoter) {
+        public AwaitVoteBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers, Duration votingDuration, ActorRef<Skipper.Command> startVoter, Set<ActorRef<Skipper.Command>> participants) {
             super(context);
             this.timers = timers;
-            votes.add(startVoter);
-            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
+            this.participants = participants;
+            votes.add(new VoteResponse(new SkipVoteResult(true), startVoter));
             timers.startSingleTimer(TIMER_KEY, new VoteTimeout(), VOTING_DURATION);
         }
 
-        private Behavior<Command> onVote(VoteRequest msg) {
-            votes.add(msg.voter);
+        private Behavior<Command> onVote(VoteResponse msg) {
+            if (votes.stream().anyMatch(vote -> vote.voter.equals(msg.voter))) {
+                getContext().getLog().info("Received duplicated vote");
+                return this;
+            }
+
+            votes.add(msg);
             getContext().getLog().info("Received vote");
             return this;
         }
@@ -112,13 +121,16 @@ public class Moderator {
         @Override
         public Receive<Command> createReceive() {
             return newReceiveBuilder()
-                    .onMessage(VoteRequest.class, this::onVote)
+                    .onMessage(VoteResponse.class, this::onVote)
                     .onMessage(VoteTimeout.class, this::onVoteTimeout)
                     .build();
         }
 
         private Behavior<Command> onVoteTimeout(VoteTimeout m) {
-            if (votes.size() == 1) { // TODO: change this condition once we have support for spawning multiple Skippers
+            long wantSkipCount = votes.stream().filter(voteRequest -> voteRequest.response.wantSkip).count();
+            double percentageResult = (double)wantSkipCount / participants.size();
+
+            if (percentageResult > 0.5) {
                 getContext()
                         .getSystem()
                         .receptionist()
@@ -129,6 +141,7 @@ public class Moderator {
 
                 return new AwaitSpeakerListing(getContext(), timers);
             }
+
             return new AwaitRequestStartVoteBehaviour(getContext(), timers);
         }
     }
@@ -139,7 +152,6 @@ public class Moderator {
         public AwaitSpeakerListing(ActorContext<Command> context, TimerScheduler<Command> timers) {
             super(context);
             this.timers = timers;
-            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
         }
 
         private Behavior<Command> onListingResponse(SpeakerListingResponse msg) {

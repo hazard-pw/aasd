@@ -5,6 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.models.SkipVoteResult;
 
 import java.time.Duration;
 
@@ -85,7 +86,7 @@ public class Skipper {
                 getContext().getLog().warn("Already voted");
                 return Behaviors.same();
             }
-            replyTo.tell(new Moderator.VoteRequest(getContext().getSelf()));
+            replyTo.tell(new Moderator.VoteResponse(new SkipVoteResult(true), getContext().getSelf()));
             return new VoteInProgressBehaviour(getContext(), timers, replyTo, votingDuration, true);
         }
 

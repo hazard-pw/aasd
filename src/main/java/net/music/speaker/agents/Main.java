@@ -8,6 +8,9 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import se.michaelthelin.spotify.SpotifyApi;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class Main {
     public interface Command {}
     public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
@@ -39,6 +42,15 @@ public class Main {
             ActorRef<Skipper.Command> skipper = getContext().spawn(Skipper.create(), "skipper");
 
             responder.tell(new Responder.OpenSurvey());
+
+            // TODO: remove
+            ActorRef<Skipper.Command> skipper2 = getContext().spawn(Skipper.create(), "skipper2");
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    skipper2.tell(new Skipper.VoteButtonPressed());
+                }
+            }, 5000);
 
             return new UIBehavior(getContext(), skipper);
         }
