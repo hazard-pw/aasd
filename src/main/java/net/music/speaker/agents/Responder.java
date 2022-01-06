@@ -9,7 +9,6 @@ import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.receptionist.Receptionist;
 import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SurveyResult;
-import net.music.speaker.ui.SurveyUI;
 
 public class Responder {
     interface Command extends JsonSerializable {}
@@ -28,11 +27,6 @@ public class Responder {
 
         private Behavior<Responder.Command> onOpenSurvey(Responder.OpenSurvey msg) {
             getContext().getLog().info("Survey Open!");
-
-            new SurveyUI((SurveyResult results) -> {
-                getContext().getSelf().tell(new Responder.UIFinished(results));
-            }).start();
-
             return new WaitingForUIFinishedBehaviour(getContext());
         }
 

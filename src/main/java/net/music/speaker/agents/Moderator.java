@@ -47,6 +47,8 @@ public class Moderator {
         }
 
         private Behavior<Command> onStartVoteRequest(StartVoteRequest msg) {
+            getContext().getLog().info("Start vote request received");
+
             getContext()
                     .getSystem()
                     .receptionist()

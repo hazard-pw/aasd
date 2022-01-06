@@ -36,6 +36,8 @@ dependencies {
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
     implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
     implementation 'se.michaelthelin.spotify:spotify-web-api-java:7.0.0'
+
+    implementation group: 'io.javalin', name: 'javalin', version: '4.2.0'
 }
 
 test {

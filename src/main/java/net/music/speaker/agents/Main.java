@@ -7,16 +7,15 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import net.music.speaker.JsonSerializable;
+import net.music.speaker.models.SurveyResult;
 import se.michaelthelin.spotify.SpotifyApi;
-
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class Main {
     public interface Command extends JsonSerializable {}
     public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
     public record JoinSession() implements Command {}
     public record VoteButton() implements Command {}
+    public record SetPreferences(SurveyResult surveyResult) implements Command {}
 
     public static Behavior<Main.Command> create() {
         return Behaviors.setup(AwaitStartBehavior::new);
@@ -44,7 +43,7 @@ public class Main {
 
             responder.tell(new Responder.OpenSurvey());
 
-            return new UIBehavior(getContext(), skipper);
+            return new UIBehavior(getContext(), skipper, responder);
         }
 
         private Behavior<Command> onJoinSession(JoinSession msg) {
@@ -53,23 +52,31 @@ public class Main {
 
             responder.tell(new Responder.OpenSurvey());
 
-            return new UIBehavior(getContext(), skipper);
+            return new UIBehavior(getContext(), skipper, responder);
         }
     }
 
     private static class UIBehavior extends AbstractBehavior<Main.Command> {
         private ActorRef<Skipper.Command> skipper;
+        private ActorRef<Responder.Command> responder;
 
-        public UIBehavior(ActorContext<Command> context, ActorRef<Skipper.Command> skipper) {
+        public UIBehavior(ActorContext<Command> context, ActorRef<Skipper.Command> skipper, ActorRef<Responder.Command> responder) {
             super(context);
             this.skipper = skipper;
+            this.responder = responder;
         }
 
         @Override
         public Receive<Command> createReceive() {
             return newReceiveBuilder()
                     .onMessage(VoteButton.class, this::onVoteButtonPressed)
+                    .onMessage(SetPreferences.class, this::onSetPreferences)
                     .build();
+        }
+
+        private Behavior<Command> onSetPreferences(SetPreferences msg) {
+            responder.tell(new Responder.UIFinished(msg.surveyResult));
+            return Behaviors.same();
         }
 
         private Behavior<Command> onVoteButtonPressed(VoteButton msg) {

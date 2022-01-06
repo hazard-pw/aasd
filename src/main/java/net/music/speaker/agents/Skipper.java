@@ -5,8 +5,10 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.Application;
 import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SkipVoteResult;
+import net.music.speaker.WebServer;
 
 import java.time.Duration;
 
@@ -52,7 +54,7 @@ public class Skipper {
         }
         
         private Behavior<Command> onStartVote(VotingStarted msg) {
-            // TODO: notify the UI... somehow
+            Application.webServer.sendBroadcast(new WebServer.VoteStarted());
             return new VoteInProgressBehaviour(getContext(), timers, msg.replyTo, msg.votingDuration, false);
         }
 
@@ -92,6 +94,7 @@ public class Skipper {
         }
 
         private Behavior<Command> onVoteTimeout(VotingTimeout msg) {
+            Application.webServer.sendBroadcast(new WebServer.VoteFinished());
             return new AwaitStartVoteBehaviour(getContext(), timers);
         }
 
