@@ -8,18 +8,17 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import se.michaelthelin.spotify.SpotifyApi;
 
-import java.net.URI;
-
 public class Main {
     public interface Command {}
     public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
     public record JoinSession(String someSessionIDOrSomethingWeWillFigureItOutLater) implements Command {}
+    public record VoteButton() implements Command {}
 
     public static Behavior<Main.Command> create() {
         return Behaviors.setup(AwaitStartBehavior::new);
     }
 
-    public static class AwaitStartBehavior extends AbstractBehavior<Main.Command> {
+    private static class AwaitStartBehavior extends AbstractBehavior<Main.Command> {
         public AwaitStartBehavior(ActorContext<Command> context) {
             super(context);
         }
@@ -41,7 +40,7 @@ public class Main {
 
             responder.tell(new Responder.OpenSurvey());
 
-            return Behaviors.empty();
+            return new UIBehavior(getContext(), skipper);
         }
 
         private Behavior<Command> onJoinSession(JoinSession msg) {
@@ -50,7 +49,28 @@ public class Main {
 
             responder.tell(new Responder.OpenSurvey());
 
-            return Behaviors.empty();
+            return new UIBehavior(getContext(), skipper);
+        }
+    }
+
+    private static class UIBehavior extends AbstractBehavior<Main.Command> {
+        private ActorRef<Skipper.Command> skipper;
+
+        public UIBehavior(ActorContext<Command> context, ActorRef<Skipper.Command> skipper) {
+            super(context);
+            this.skipper = skipper;
+        }
+
+        @Override
+        public Receive<Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(VoteButton.class, this::onVoteButtonPressed)
+                    .build();
+        }
+
+        private Behavior<Command> onVoteButtonPressed(VoteButton msg) {
+            skipper.tell(new Skipper.VoteButtonPressed());
+            return Behaviors.same();
         }
     }
 }

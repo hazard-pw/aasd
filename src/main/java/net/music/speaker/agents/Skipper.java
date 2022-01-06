@@ -2,81 +2,125 @@ package net.music.speaker.agents;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
+import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
 
+import java.time.Duration;
+
 public class Skipper {
-    public static final ServiceKey<Skipper.Command> skipperServiceKey =
-            ServiceKey.create(Skipper.Command.class, "skipper");
+    public static final ServiceKey<Command> skipperServiceKey =
+            ServiceKey.create(Command.class, "skipper");
 
     interface Command {}
-    public static final class VotingStarted implements Skipper.Command {}
+    public record VoteButtonPressed() implements Command {}
+    public record VotingStarted(ActorRef<Moderator.Command> replyTo, Duration votingDuration) implements Command {}
+    private record ListingResponse(Receptionist.Listing listing) implements Command {}
+    private record VotingTimeout() implements Command {}
 
-    static final class ListingResponse implements Skipper.Command {
-        final Receptionist.Listing listing;
-
-        ListingResponse(Receptionist.Listing listing) {
-            this.listing = listing;
-        }
-    }
-
-    public static Behavior<Skipper.Command> create() {
+    public static Behavior<Command> create() {
         return Behaviors.setup(
             context -> {
                 context
-                        .getSystem()
-                        .receptionist()
-                        .tell(Receptionist.register(skipperServiceKey, context.getSelf()));
+                    .getSystem()
+                    .receptionist()
+                    .tell(Receptionist.register(skipperServiceKey, context.getSelf()));
 
-                return new AwaitStartVoteBehaviour(context);
+                return Behaviors.withTimers(timers -> new AwaitStartVoteBehaviour(context, timers));
             });
     }
 
-    static class AwaitStartVoteBehaviour extends AbstractBehavior<Skipper.Command> {
+    private static class AwaitStartVoteBehaviour extends AbstractBehavior<Command> {
         private final ActorRef<Receptionist.Listing> listingResponseAdapter;
+        private final TimerScheduler<Command> timers;
 
-        public AwaitStartVoteBehaviour(ActorContext<Skipper.Command> context) {
+        public AwaitStartVoteBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers) {
             super(context);
-            this.listingResponseAdapter = context.messageAdapter(Receptionist.Listing.class, Skipper.ListingResponse::new);
+            this.listingResponseAdapter = context.messageAdapter(Receptionist.Listing.class, ListingResponse::new);
+            this.timers = timers;
             getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
         }
 
-        private Behavior<Skipper.Command> onStartVote(VotingStarted msg) {
+        private Behavior<Command> onVoteButtonPressed(VoteButtonPressed msg) {
             getContext()
                     .getSystem()
                     .receptionist()
                     .tell(Receptionist.find(Moderator.moderatorServiceKey, listingResponseAdapter));
-            return new ModeratorListingBehaviour(getContext());
+            return new RequestStartVoteModeratorListingBehaviour(getContext(), timers);
+        }
+        
+        private Behavior<Command> onStartVote(VotingStarted msg) {
+            // TODO: notify the UI... somehow
+            return new VoteInProgressBehaviour(getContext(), timers, msg.replyTo, msg.votingDuration, false);
         }
 
         @Override
-        public Receive<Skipper.Command> createReceive() {
+        public Receive<Command> createReceive() {
             return newReceiveBuilder()
+                    .onMessage(VoteButtonPressed.class, this::onVoteButtonPressed)
                     .onMessage(VotingStarted.class, this::onStartVote)
                     .build();
         }
     }
 
-    static class ModeratorListingBehaviour extends AbstractBehavior<Skipper.Command> {
-        public ModeratorListingBehaviour(ActorContext<Skipper.Command> context) {
+    private static class VoteInProgressBehaviour extends AbstractBehavior<Command> {
+        private final TimerScheduler<Command> timers;
+        private final ActorRef<Moderator.Command> replyTo;
+        private final Duration votingDuration;
+        private final boolean alreadyVoted;
+
+        public VoteInProgressBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers, ActorRef<Moderator.Command> replyTo, Duration votingDuration, boolean alreadyVoted) {
             super(context);
-            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
+            this.timers = timers;
+            this.replyTo = replyTo;
+            this.votingDuration = votingDuration;
+            this.alreadyVoted = alreadyVoted;
+            if (!alreadyVoted) {
+                timers.startSingleTimer(new VotingTimeout(), votingDuration);
+            }
         }
 
-        private Behavior<Skipper.Command> onListing(Skipper.ListingResponse msg) {
-            msg.listing.getServiceInstances(Moderator.moderatorServiceKey)
-                    .forEach(service -> service.tell(new Moderator.VoteRequest()));
-            return new AwaitStartVoteBehaviour(getContext());
+        private Behavior<Command> onVoteButtonPressed(VoteButtonPressed msg) {
+            if (alreadyVoted) {
+                getContext().getLog().warn("Already voted");
+                return Behaviors.same();
+            }
+            replyTo.tell(new Moderator.VoteRequest(getContext().getSelf()));
+            return new VoteInProgressBehaviour(getContext(), timers, replyTo, votingDuration, true);
+        }
+
+        private Behavior<Command> onVoteTimeout(VotingTimeout msg) {
+            return new AwaitStartVoteBehaviour(getContext(), timers);
         }
 
         @Override
-        public Receive<Skipper.Command> createReceive() {
+        public Receive<Command> createReceive() {
             return newReceiveBuilder()
-                    .onMessage(Skipper.ListingResponse.class, this::onListing)
+                    .onMessage(VoteButtonPressed.class, this::onVoteButtonPressed)
+                    .onMessage(VotingTimeout.class, this::onVoteTimeout)
+                    .build();
+        }
+    }
+
+    private static class RequestStartVoteModeratorListingBehaviour extends AbstractBehavior<Command> {
+        private final TimerScheduler<Command> timers;
+
+        public RequestStartVoteModeratorListingBehaviour(ActorContext<Command> context, TimerScheduler<Command> timers) {
+            super(context);
+            this.timers = timers;
+            getContext().getLog().info("Changed behaviour to " + getClass().getSimpleName());
+        }
+
+        private Behavior<Command> onListing(ListingResponse msg) {
+            msg.listing.getServiceInstances(Moderator.moderatorServiceKey)
+                    .forEach(service -> service.tell(new Moderator.StartVoteRequest(getContext().getSelf())));
+            return new AwaitStartVoteBehaviour(getContext(), timers);
+        }
+
+        @Override
+        public Receive<Command> createReceive() {
+            return newReceiveBuilder()
+                    .onMessage(ListingResponse.class, this::onListing)
                     .build();
         }
     }

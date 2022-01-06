@@ -47,7 +47,8 @@ public class Application extends AllDirectives {
         http.newServerAt("localhost", 8080)
             .bind(concat(
                 path("", () -> get(this::index)),
-                path("callback", () -> get(this::loginCallback))
+                path("callback", () -> get(this::loginCallback)),
+                path("vote", () -> get(this::vote))
             ));
 
         System.out.println("Server online at http://localhost:8080/");
@@ -65,13 +66,6 @@ public class Application extends AllDirectives {
             return complete("Welcome to the Awesome Agent System for Deciding what music to play\n" + system.printTree());
         }
     }
-
-    // TODO:
-    // onCallback -> create new Participant with Speaker possibilities
-    // join website -> register new Participant
-    // participant has its participant id
-    // global moderator, surveyor
-    // SpeakerManager by musiał być
 
     private Route loginCallback() {
         if (spotifyApi.getAccessToken() != null) {
@@ -95,6 +89,10 @@ public class Application extends AllDirectives {
                 throw new RuntimeException(e);
             }
         });
+    }
+    private Route vote() {
+        system.tell(new Main.VoteButton());
+        return complete("Voted!");
     }
 
     private void openBrowser(URI url) {

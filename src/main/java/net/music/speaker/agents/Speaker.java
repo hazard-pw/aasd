@@ -4,6 +4,7 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
+import akka.actor.typed.receptionist.ServiceKey;
 import akka.util.Timeout;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -15,6 +16,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class Speaker {
+    public static final ServiceKey<Speaker.Command> speakerServiceKey =
+            ServiceKey.create(Speaker.Command.class, "speaker");
+
     interface Command { }
     private record FindSurveyorResponse(Receptionist.Listing surveyors) implements Command {}
     private record RequestSongSuccess(Surveyor.NextSongResponse nextSong) implements Command {}
@@ -26,6 +30,13 @@ public class Speaker {
 
     public static Behavior<Command> create(SpotifyApi spotifyApi) {
         return Behaviors.setup(context -> {
+            context.getSystem().receptionist().tell(
+                    Receptionist.register(
+                            speakerServiceKey,
+                            context.getSelf()
+                    )
+            );
+
             context.getSystem().receptionist().tell(
                     Receptionist.subscribe(
                             Surveyor.surveyorServiceKey,
@@ -94,7 +105,7 @@ public class Speaker {
         protected abstract Behavior<Command> onChangeSurveyor(ActorRef<Surveyor.Command> surveyor);
     }
 
-    public static class WaitForNextSongBehavior extends BehaviorWithSurveyor<Speaker.Command> {
+    private static class WaitForNextSongBehavior extends BehaviorWithSurveyor<Speaker.Command> {
         private final TimerScheduler<Command> timers;
         private final SpotifyApi spotifyApi;
 
@@ -177,7 +188,7 @@ public class Speaker {
         }
     }
 
-    public static class WaitForSongEndBehavior extends BehaviorWithSurveyor<Speaker.Command> {
+    private static class WaitForSongEndBehavior extends BehaviorWithSurveyor<Speaker.Command> {
         private final TimerScheduler<Command> timers;
         private final SpotifyApi spotifyApi;
 
