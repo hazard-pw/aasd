@@ -7,11 +7,12 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.receptionist.Receptionist;
+import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SurveyResult;
 import net.music.speaker.ui.SurveyUI;
 
 public class Responder {
-    interface Command {}
+    interface Command extends JsonSerializable {}
     public record OpenSurvey() implements Command {}
     public record UIFinished(SurveyResult results) implements Command {}
     private record ListingResponse(Receptionist.Listing listing) implements Command {}

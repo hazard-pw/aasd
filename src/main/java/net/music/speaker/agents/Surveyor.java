@@ -8,6 +8,7 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SurveyResult;
 import org.slf4j.Logger;
 import se.michaelthelin.spotify.SpotifyApi;
@@ -26,7 +27,7 @@ public class Surveyor {
     public static final ServiceKey<Command> surveyorServiceKey =
             ServiceKey.create(Command.class, "surveyor");
 
-    interface Command {}
+    interface Command extends JsonSerializable {}
     public record ReceiveSurveyResult(SurveyResult result) implements Command {}
     public record NextSongRequest(ActorRef<Surveyor.NextSongResponse> replyTo) implements Command {}
     public record NextSongResponse(String songURI) {}

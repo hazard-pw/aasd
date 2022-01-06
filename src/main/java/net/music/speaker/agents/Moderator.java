@@ -5,6 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SkipVoteResult;
 
 import java.time.Duration;
@@ -18,7 +19,7 @@ public class Moderator {
 
     private static final Duration VOTING_DURATION = Duration.ofSeconds(10);
 
-    interface Command {}
+    interface Command extends JsonSerializable {}
     public record StartVoteRequest(ActorRef<Skipper.Command> voter) implements Command {}
     public record VoteResponse(SkipVoteResult response, ActorRef<Skipper.Command> voter) implements Command {}
     private record VoteTimeout() implements Command {}

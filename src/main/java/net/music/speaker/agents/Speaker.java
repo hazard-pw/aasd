@@ -7,6 +7,7 @@ import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
 import akka.util.Timeout;
 import com.google.gson.Gson;
+import net.music.speaker.JsonSerializable;
 import org.slf4j.Logger;
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.model_objects.miscellaneous.Device;
@@ -19,7 +20,7 @@ public class Speaker {
     public static final ServiceKey<Speaker.Command> speakerServiceKey =
             ServiceKey.create(Speaker.Command.class, "speaker");
 
-    interface Command { }
+    interface Command extends JsonSerializable { }
     private record FindSurveyorResponse(Receptionist.Listing surveyors) implements Command {}
     private record RequestSongSuccess(Surveyor.NextSongResponse nextSong) implements Command {}
     private record RequestSongRetry() implements Command {}

@@ -5,6 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import net.music.speaker.JsonSerializable;
 import net.music.speaker.models.SkipVoteResult;
 
 import java.time.Duration;
@@ -13,7 +14,7 @@ public class Skipper {
     public static final ServiceKey<Command> skipperServiceKey =
             ServiceKey.create(Command.class, "skipper");
 
-    interface Command {}
+    interface Command extends JsonSerializable {}
     public record VoteButtonPressed() implements Command {}
     public record VotingStarted(ActorRef<Moderator.Command> replyTo, Duration votingDuration) implements Command {}
     private record ListingResponse(Receptionist.Listing listing) implements Command {}

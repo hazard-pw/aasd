@@ -28,6 +28,8 @@ dependencies {
     implementation "com.typesafe.akka:akka-actor-typed_${versions.ScalaBinary}"
     testImplementation "com.typesafe.akka:akka-actor-testkit-typed_${versions.ScalaBinary}"
     implementation "com.typesafe.akka:akka-stream_${versions.ScalaBinary}:${versions.AkkaVersion}"
+    implementation "com.typesafe.akka:akka-cluster-typed_${versions.ScalaBinary}"
+    implementation "com.typesafe.akka:akka-serialization-jackson_${versions.ScalaBinary}"
     implementation "com.typesafe.akka:akka-http_${versions.ScalaBinary}"
     implementation "com.typesafe.akka:akka-http-jackson_${versions.ScalaBinary}"
 

@@ -6,15 +6,16 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
+import net.music.speaker.JsonSerializable;
 import se.michaelthelin.spotify.SpotifyApi;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class Main {
-    public interface Command {}
+    public interface Command extends JsonSerializable {}
     public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
-    public record JoinSession(String someSessionIDOrSomethingWeWillFigureItOutLater) implements Command {}
+    public record JoinSession() implements Command {}
     public record VoteButton() implements Command {}
 
     public static Behavior<Main.Command> create() {
@@ -42,15 +43,6 @@ public class Main {
             ActorRef<Skipper.Command> skipper = getContext().spawn(Skipper.create(), "skipper");
 
             responder.tell(new Responder.OpenSurvey());
-
-            // TODO: remove
-            ActorRef<Skipper.Command> skipper2 = getContext().spawn(Skipper.create(), "skipper2");
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    skipper2.tell(new Skipper.VoteButtonPressed());
-                }
-            }, 5000);
 
             return new UIBehavior(getContext(), skipper);
         }
