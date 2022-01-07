@@ -38,6 +38,7 @@ const defaultPreferences = {
 export const Dashboard = ({address, showPreferences}) => {
     const [preferencesSaved, setPreferencesSaved] = useState(!showPreferences)
     const [votingActive, setVotingActive] = useState(false);
+    const [votingExpireTimestamp, setVotingExpireTimestamp] = useState(false);
     const [voted, setVoted] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState("connecting")
 
@@ -52,6 +53,7 @@ export const Dashboard = ({address, showPreferences}) => {
             switch (payload.action) {
                 case "voteStarted":
                     setVotingActive(true)
+                    setVotingExpireTimestamp(payload.expireTimestamp)
                     break;
                 case "voteFinished":
                     setVotingActive(false)
@@ -89,6 +91,7 @@ export const Dashboard = ({address, showPreferences}) => {
         {connectionStatus === "connected" && <div>
             {preferencesSaved && <VotePanel
                 votingActive={votingActive}
+                votingExpireTimestamp={votingExpireTimestamp}
                 voted={voted}
                 onRequestVoting={() => handleVote(true)}
                 onVote={handleVote}/>

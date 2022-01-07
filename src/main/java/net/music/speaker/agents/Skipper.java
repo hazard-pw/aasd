@@ -54,7 +54,7 @@ public class Skipper {
         }
         
         private Behavior<Command> onStartVote(VotingStarted msg) {
-            Application.webServer.sendBroadcast(new WebServer.VoteStarted());
+            Application.webServer.sendBroadcast(new WebServer.VoteStarted(System.currentTimeMillis() + msg.votingDuration.toMillis()));
             return new VoteInProgressBehaviour(getContext(), timers, msg.replyTo, msg.votingDuration, false);
         }
 

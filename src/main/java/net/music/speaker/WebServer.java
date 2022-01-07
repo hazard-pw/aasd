@@ -38,9 +38,9 @@ public class WebServer {
         }
     }
 
-    public record VoteStarted(String action) {
-        public VoteStarted() {
-            this("voteStarted");
+    public record VoteStarted(String action, long expireTimestamp) {
+        public VoteStarted(long expireTimestamp) {
+            this("voteStarted", expireTimestamp);
         }
     }
 
