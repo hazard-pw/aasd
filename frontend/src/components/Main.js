@@ -19,5 +19,5 @@ export const Main = () => {
         </>
     }
 
-    return data?.inSession ? <Dashboard address={data?.address}/> : <Session onJoin={handleJoin}/>
+    return data?.inSession ? <Dashboard address={data?.address} showPreferences={!data?.preferencesSet}/> : <Session onJoin={handleJoin}/>
 }

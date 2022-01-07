@@ -35,8 +35,8 @@ const defaultPreferences = {
     "acousticness": 0
 }
 
-export const Dashboard = ({address}) => {
-    const [preferencesSaved, setPreferencesSaved] = useState(false)
+export const Dashboard = ({address, showPreferences}) => {
+    const [preferencesSaved, setPreferencesSaved] = useState(!showPreferences)
     const [votingActive, setVotingActive] = useState(false);
     const [voted, setVoted] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState("connecting")

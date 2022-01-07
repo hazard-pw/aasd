@@ -29,7 +29,7 @@ public class WebServer {
     record PreferencesRequest(String action, SurveyResult value) {}
     record JoinSessionRequest(String action, String value) {}
     record SpotifyAuthResponse(String authUri) {}
-    record SessionStatusResponse(boolean inSession, String address) {}
+    record SessionStatusResponse(boolean inSession, boolean preferencesSet, String address) {}
 
     record ClusterResponse(String action, String errorMessage) {
         public ClusterResponse() {
@@ -51,9 +51,11 @@ public class WebServer {
 
     private final ActorSystem<Main.Command> system;
     private final Cluster cluster;
-    private boolean clusterStarted;
     private final int httpPort;
     private final List<WsContext> users;
+
+    private boolean clusterStarted;
+    private boolean preferencesSet;
 
     private final SpotifyApi spotifyApi;
     private static final String CLIENT_ID = "eb4ae8cd60674701a3bb88b33ca045eb";
@@ -102,7 +104,7 @@ public class WebServer {
 
             path("api", () -> {
                 get("status", ctx -> {
-                    ctx.json(new SessionStatusResponse(clusterStarted, cluster.selfMember().address().toString()));
+                    ctx.json(new SessionStatusResponse(clusterStarted, preferencesSet, cluster.selfMember().address().toString()));
                 });
 
                 post("createSession", ctx -> {
@@ -140,8 +142,11 @@ public class WebServer {
                     switch (jsonNode.get("action").asText()) {
                         case "vote" -> system.tell(new Main.VoteButton());
                         case "setPreferences" -> {
+                            if (preferencesSet) return;
+
                             PreferencesRequest request = ctx.messageAsClass(PreferencesRequest.class);
                             system.tell(new Main.SetPreferences(request.value));
+                            preferencesSet = true;
                         }
                     }
                 });
@@ -149,7 +154,7 @@ public class WebServer {
         });
 
         System.out.println("Server online at http://localhost:" + httpPort + "/");
-//        openBrowser(URI.create("http://localhost:" + httpPort + "/"));
+        openBrowser(URI.create("http://localhost:" + httpPort + "/"));
     }
 
     public void sendBroadcast(Object data) {
