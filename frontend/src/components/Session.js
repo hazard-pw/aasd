@@ -33,7 +33,7 @@ export const Session = ({onJoin}) => {
             <Panel title="Existing session">
                 <div style={{marginBottom: "10px"}}>
                     <TextField
-                        label="Outlined"
+                        label="Address"
                         variant="outlined"
                         value={ip}
                         onChange={(event) => setIp(event.target.value)}
