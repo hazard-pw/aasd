@@ -108,6 +108,10 @@ public class WebServer {
                     ctx.json(new SessionStatusResponse(clusterStarted, preferencesSet, cluster.selfMember().address().toString()));
                 });
 
+                get("genres", ctx -> {
+                    ctx.json(spotifyApi.getAvailableGenreSeeds().build().execute());
+                });
+
                 post("createSession", ctx -> {
                     if (clusterStarted) {
                         ctx.json(new ClusterResponse());
