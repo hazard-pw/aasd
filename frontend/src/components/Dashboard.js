@@ -6,11 +6,11 @@ import {VotePanel} from "./VotePanel";
 
 const connectionStatuses = {
     connecting: {
-        text: "Connecting..",
+        text: "Connecting to backend..",
         color: "info"
     },
     connected: {
-        text: "Connected",
+        text: "Connected to backend",
         color: "success"
     },
     closed: {
@@ -90,7 +90,7 @@ export const Dashboard = ({address, showPreferences}) => {
             {preferencesSaved && <VotePanel
                 votingActive={votingActive}
                 voted={voted}
-                onRequestVoting={handleVote}
+                onRequestVoting={() => handleVote(true)}
                 onVote={handleVote}/>
             }
 
@@ -123,7 +123,10 @@ export const Dashboard = ({address, showPreferences}) => {
         </div>
         }
         <Alert severity={connectionStatuses[connectionStatus].color}>
-            {connectionStatuses[connectionStatus].text} | {address}
+            {connectionStatuses[connectionStatus].text}
+        </Alert>
+        <Alert severity="info">
+            Local cluster: {address}
         </Alert>
     </div>
 }

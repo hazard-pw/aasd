@@ -10,7 +10,7 @@ export const VotePanel = ({votingActive, onRequestVoting, onVote, voted}) => {
                     <Button variant="contained" color="error" onClick={() => onVote(false)}>No</Button>
                 </>}
             </Panel> : <Panel title="Voting">
-                <Button variant="contained" onClick={onRequestVoting}>Request song skip</Button>
+                <Button variant="contained" onClick={() => onRequestVoting()}>Request song skip</Button>
             </Panel>}
         </div>
     )
