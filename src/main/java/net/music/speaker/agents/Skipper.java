@@ -17,7 +17,7 @@ public class Skipper {
             ServiceKey.create(Command.class, "skipper");
 
     interface Command extends JsonSerializable {}
-    public record VoteButtonPressed() implements Command {}
+    public record VoteButtonPressed(boolean wantSkip) implements Command {}
     public record VotingStarted(ActorRef<Moderator.Command> replyTo, Duration votingDuration) implements Command {}
     private record ListingResponse(Receptionist.Listing listing) implements Command {}
     private record VotingTimeout() implements Command {}
@@ -89,7 +89,7 @@ public class Skipper {
                 getContext().getLog().warn("Already voted");
                 return Behaviors.same();
             }
-            replyTo.tell(new Moderator.VoteResponse(new SkipVoteResult(true), getContext().getSelf()));
+            replyTo.tell(new Moderator.VoteResponse(new SkipVoteResult(msg.wantSkip), getContext().getSelf()));
             return new VoteInProgressBehaviour(getContext(), timers, replyTo, votingDuration, true);
         }
 

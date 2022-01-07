@@ -79,11 +79,10 @@ export const Dashboard = ({address, showPreferences}) => {
     const handleVote = (option) => {
         setVoted(true)
 
-        if (option) {
-            socket.send(JSON.stringify({
-                action: "vote"
-            }))
-        }
+        socket.send(JSON.stringify({
+            action: "vote",
+            value: option
+        }))
     }
 
     return <div>

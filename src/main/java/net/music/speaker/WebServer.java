@@ -26,6 +26,7 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 
 public class WebServer {
 
+    record VoteRequest(String action, boolean value) {}
     record PreferencesRequest(String action, SurveyResult value) {}
     record JoinSessionRequest(String action, String value) {}
     record SpotifyAuthResponse(String authUri) {}
@@ -140,7 +141,10 @@ public class WebServer {
                 ws.onMessage(ctx -> {
                     JsonNode jsonNode = new ObjectMapper().readTree(ctx.message());
                     switch (jsonNode.get("action").asText()) {
-                        case "vote" -> system.tell(new Main.VoteButton());
+                        case "vote" -> {
+                            VoteRequest request = ctx.messageAsClass(VoteRequest.class);
+                            system.tell(new Main.VoteButton(request.value));
+                        }
                         case "setPreferences" -> {
                             if (preferencesSet) return;
 

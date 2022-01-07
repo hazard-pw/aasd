@@ -14,7 +14,7 @@ public class Main {
     public interface Command extends JsonSerializable {}
     public record StartNewSession(SpotifyApi spotifyApi) implements Command {}
     public record JoinSession() implements Command {}
-    public record VoteButton() implements Command {}
+    public record VoteButton(boolean wantSkip) implements Command {}
     public record SetPreferences(SurveyResult surveyResult) implements Command {}
 
     public static Behavior<Main.Command> create() {
@@ -80,7 +80,7 @@ public class Main {
         }
 
         private Behavior<Command> onVoteButtonPressed(VoteButton msg) {
-            skipper.tell(new Skipper.VoteButtonPressed());
+            skipper.tell(new Skipper.VoteButtonPressed(msg.wantSkip));
             return Behaviors.same();
         }
     }

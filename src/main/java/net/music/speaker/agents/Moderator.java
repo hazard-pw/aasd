@@ -118,6 +118,7 @@ public class Moderator {
 
             votes.add(msg);
             getContext().getLog().info("Received vote");
+
             return this;
         }
 
